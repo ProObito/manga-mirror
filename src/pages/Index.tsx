@@ -1,13 +1,51 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Helmet } from 'react-helmet-async';
+import Navbar from '@/components/Navbar';
+import HeroSlider from '@/components/HeroSlider';
+import SearchBar from '@/components/SearchBar';
+import MangaGrid from '@/components/MangaGrid';
+import FeaturesSection from '@/components/FeaturesSection';
+import Footer from '@/components/Footer';
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <>
+      <Helmet>
+        <title>MangaHub - Read Manga & Webtoons Online Free</title>
+        <meta 
+          name="description" 
+          content="Discover and read thousands of manga and webtoons for free. MangaHub offers the best reading experience with high-quality scans, fast updates, and a vast library." 
+        />
+        <meta name="keywords" content="manga, webtoon, manhwa, manhua, read manga, free manga" />
+      </Helmet>
+
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        
+        <main>
+          {/* Hero Section with Auto-Slider */}
+          <HeroSlider />
+          
+          {/* Search Section */}
+          <section className="py-12 -mt-16 relative z-20">
+            <div className="container mx-auto px-4">
+              <SearchBar />
+            </div>
+          </section>
+          
+          {/* Manga Grid Sections */}
+          <section className="py-8">
+            <div className="container mx-auto px-4">
+              <MangaGrid />
+            </div>
+          </section>
+          
+          {/* Features Section */}
+          <FeaturesSection />
+        </main>
+        
+        <Footer />
       </div>
-    </div>
+    </>
   );
 };
 
