@@ -10,10 +10,10 @@ const Index = () => {
   return (
     <>
       <Helmet>
-        <title>MangaHub - Read Manga & Webtoons Online Free</title>
+        <title>ComickTown - Read Manga & Webtoons Online Free</title>
         <meta 
           name="description" 
-          content="Discover and read thousands of manga and webtoons for free. MangaHub offers the best reading experience with high-quality scans, fast updates, and a vast library." 
+          content="Discover and read thousands of manga and webtoons for free. ComickTown offers the best reading experience with high-quality scans, fast updates, and a vast library." 
         />
         <meta name="keywords" content="manga, webtoon, manhwa, manhua, read manga, free manga" />
       </Helmet>
