@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Search, User, BookOpen, Flame, Clock, Star, Settings, LogIn } from 'lucide-react';
+import { Menu, X, Search, BookOpen, Flame, Clock, Star, LogIn, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 const navLinks = [
   { name: 'Home', href: '/' },
@@ -16,12 +17,18 @@ const navLinks = [
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut, isAdmin } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
       <nav className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
             <div className="relative">
               <BookOpen className="h-8 w-8 text-primary transition-transform group-hover:scale-110" />
@@ -32,7 +39,6 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => {
               const isActive = location.pathname === link.href;
@@ -54,26 +60,44 @@ const Navbar = () => {
             })}
           </div>
 
-          {/* Right Actions */}
           <div className="flex items-center gap-2">
             <Link to="/search">
               <Button variant="ghost" size="icon" className="hidden sm:flex">
                 <Search className="h-5 w-5" />
               </Button>
             </Link>
-            <Link to="/login">
-              <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
-                <LogIn className="h-4 w-4" />
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/login">
-              <Button variant="hero" size="sm" className="hidden sm:flex">
-                Get Started
-              </Button>
-            </Link>
+            
+            {user ? (
+              <>
+                {isAdmin && (
+                  <Link to="/admin">
+                    <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
+                      <Shield className="h-4 w-4" />
+                      Admin
+                    </Button>
+                  </Link>
+                )}
+                <Button variant="ghost" size="sm" onClick={handleSignOut} className="hidden sm:flex gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/auth">
+                  <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
+                    <LogIn className="h-4 w-4" />
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/auth">
+                  <Button variant="hero" size="sm" className="hidden sm:flex">
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
 
-            {/* Mobile Menu Button */}
             <Button
               variant="ghost"
               size="icon"
@@ -85,7 +109,6 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -114,18 +137,33 @@ const Navbar = () => {
                     </Link>
                   );
                 })}
+                {isAdmin && (
+                  <Link to="/admin" onClick={() => setIsOpen(false)} className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3">
+                    <Shield className="h-5 w-5" />
+                    Admin Dashboard
+                  </Link>
+                )}
                 <div className="border-t border-border/50 mt-2 pt-4 flex gap-2">
-                  <Link to="/search" className="flex-1">
-                    <Button variant="outline" className="w-full gap-2">
-                      <Search className="h-4 w-4" />
-                      Search
+                  {user ? (
+                    <Button variant="outline" className="w-full gap-2" onClick={handleSignOut}>
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
                     </Button>
-                  </Link>
-                  <Link to="/login" className="flex-1">
-                    <Button variant="hero" className="w-full">
-                      Sign In
-                    </Button>
-                  </Link>
+                  ) : (
+                    <>
+                      <Link to="/search" className="flex-1">
+                        <Button variant="outline" className="w-full gap-2">
+                          <Search className="h-4 w-4" />
+                          Search
+                        </Button>
+                      </Link>
+                      <Link to="/auth" className="flex-1">
+                        <Button variant="hero" className="w-full">
+                          Sign In
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </motion.div>
