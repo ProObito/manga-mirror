@@ -372,6 +372,51 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_sessions: {
+        Row: {
+          chapter_id: string | null
+          chat_id: string
+          created_at: string | null
+          id: string
+          images: string[] | null
+          manga_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          chapter_id?: string | null
+          chat_id: string
+          created_at?: string | null
+          id?: string
+          images?: string[] | null
+          manga_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          chapter_id?: string | null
+          chat_id?: string
+          created_at?: string | null
+          id?: string
+          images?: string[] | null
+          manga_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_sessions_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "telegram_sessions_manga_id_fkey"
+            columns: ["manga_id"]
+            isOneToOne: false
+            referencedRelation: "manga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_ratings: {
         Row: {
           created_at: string | null
