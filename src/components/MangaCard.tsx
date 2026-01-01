@@ -1,9 +1,11 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Star, BookOpen, Eye } from 'lucide-react';
+import { Star, BookOpen, Edit } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Manga } from '@/lib/types';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MangaCardProps {
   manga: Manga;
@@ -12,6 +14,16 @@ interface MangaCardProps {
 }
 
 const MangaCard = ({ manga, index = 0, variant = 'default' }: MangaCardProps) => {
+  const { isAdmin, isOwner } = useAuth();
+  const navigate = useNavigate();
+  const canEdit = isAdmin || isOwner;
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/admin/manga/edit/${manga.id}`);
+  };
+
   if (variant === 'compact') {
     return (
       <Link to={`/manga/${manga.id}`}>
@@ -19,7 +31,7 @@ const MangaCard = ({ manga, index = 0, variant = 'default' }: MangaCardProps) =>
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.05 }}
-          className="flex gap-4 p-3 rounded-xl hover:bg-muted transition-colors group"
+          className="flex gap-4 p-3 rounded-xl hover:bg-muted transition-colors group relative"
         >
           <img
             src={manga.cover}
@@ -38,6 +50,16 @@ const MangaCard = ({ manga, index = 0, variant = 'default' }: MangaCardProps) =>
               {manga.chapters.length} chapters
             </p>
           </div>
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={handleEdit}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
         </motion.div>
       </Link>
     );
@@ -51,7 +73,7 @@ const MangaCard = ({ manga, index = 0, variant = 'default' }: MangaCardProps) =>
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: index * 0.1 }}
         >
-          <Card variant="elevated" className="overflow-hidden card-hover group">
+          <Card variant="elevated" className="overflow-hidden card-hover group relative">
             <div className="relative aspect-[3/4]">
               <img
                 src={manga.cover}
@@ -59,6 +81,18 @@ const MangaCard = ({ manga, index = 0, variant = 'default' }: MangaCardProps) =>
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-90" />
+              
+              {/* Edit Button */}
+              {canEdit && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  onClick={handleEdit}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
               
               {/* Ranking Badge */}
               {index < 3 && (
@@ -104,7 +138,7 @@ const MangaCard = ({ manga, index = 0, variant = 'default' }: MangaCardProps) =>
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.05 }}
       >
-        <Card variant="default" className="overflow-hidden card-hover group">
+        <Card variant="default" className="overflow-hidden card-hover group relative">
           <div className="relative aspect-[2/3]">
             <img
               src={manga.cover}
@@ -112,6 +146,18 @@ const MangaCard = ({ manga, index = 0, variant = 'default' }: MangaCardProps) =>
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
+            
+            {/* Edit Button */}
+            {canEdit && (
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                onClick={handleEdit}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
             
             {/* Status Badge */}
             <div className="absolute top-2 right-2">
