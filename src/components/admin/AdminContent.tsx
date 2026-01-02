@@ -6,6 +6,7 @@ import RoleManagement from './RoleManagement';
 import ScraperManagement from './ScraperManagement';
 import PromoManagement from './PromoManagement';
 import AdminSettings from './AdminSettings';
+import MangaScraper from './MangaScraper';
 
 const AdminContent = () => {
   return (
@@ -17,6 +18,7 @@ const AdminContent = () => {
           <Route path="users" element={<UserManagement />} />
           <Route path="roles" element={<RoleManagement />} />
           <Route path="scrapers" element={<ScraperManagement />} />
+          <Route path="import" element={<MangaScraper />} />
           <Route path="promos" element={<PromoManagement />} />
           <Route path="settings" element={<AdminSettings />} />
         </Routes>
