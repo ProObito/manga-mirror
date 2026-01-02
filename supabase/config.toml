@@ -2,3 +2,6 @@ project_id = "llirkgzjtaqltkxsgazo"
 
 [functions.telegram-bot]
 verify_jwt = false
+
+[functions.manga-scraper]
+verify_jwt = false

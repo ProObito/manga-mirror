@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 const menuItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Manga', href: '/admin/manga', icon: BookMarked },
+  { name: 'Import Manga', href: '/admin/import', icon: FileCode },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Roles', href: '/admin/roles', icon: Shield },
   { name: 'Scrapers', href: '/admin/scrapers', icon: FileCode },

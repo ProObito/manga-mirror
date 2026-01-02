@@ -6,16 +6,27 @@ import {
   ChevronLeft,
   ChevronRight,
   List,
-  Settings,
-  X,
   Home,
   Maximize,
   Minimize,
-  Sun,
-  Moon,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { mockManga } from '@/lib/mock-data';
+import { supabase } from '@/integrations/supabase/client';
+import { useReadingProgress } from '@/hooks/useReadingProgress';
+
+interface Chapter {
+  id: string;
+  number: number;
+  title: string | null;
+  images: string[] | null;
+}
+
+interface Manga {
+  id: string;
+  title: string;
+  chapters: Chapter[];
+}
 
 const Reader = () => {
   const { mangaId, chapterId } = useParams();
@@ -24,19 +35,77 @@ const Reader = () => {
   const [showControls, setShowControls] = useState(true);
   const [showChapterList, setShowChapterList] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [manga, setManga] = useState<Manga | null>(null);
+  const [chapter, setChapter] = useState<Chapter | null>(null);
+  
+  const { progress, updateProgress } = useReadingProgress(mangaId, chapterId);
 
-  const manga = mockManga.find((m) => m.id === mangaId);
-  const chapter = manga?.chapters.find((c) => c.id === chapterId);
-  const chapterIndex = manga?.chapters.findIndex((c) => c.id === chapterId) || 0;
+  // Fetch manga and chapter data
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!mangaId || !chapterId) return;
+      
+      setLoading(true);
+      try {
+        // Fetch manga
+        const { data: mangaData, error: mangaError } = await supabase
+          .from('manga')
+          .select('id, title')
+          .eq('id', mangaId)
+          .single();
 
-  // Sample pages for demo
-  const pages = [
-    'https://images.unsplash.com/photo-1612178537253-bccd437b730e?w=800&h=1200&fit=crop',
-    'https://images.unsplash.com/photo-1618336753974-aae8e04506aa?w=800&h=1200&fit=crop',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&h=1200&fit=crop',
-    'https://images.unsplash.com/photo-1614624532983-4ce03382d63d?w=800&h=1200&fit=crop',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&h=1200&fit=crop',
-  ];
+        if (mangaError) throw mangaError;
+
+        // Fetch all chapters for navigation
+        const { data: chaptersData, error: chaptersError } = await supabase
+          .from('chapters')
+          .select('id, number, title, images')
+          .eq('manga_id', mangaId)
+          .order('number', { ascending: true });
+
+        if (chaptersError) throw chaptersError;
+
+        const currentChapter = chaptersData?.find(c => c.id === chapterId);
+        
+        setManga({
+          id: mangaData.id,
+          title: mangaData.title,
+          chapters: chaptersData || [],
+        });
+        setChapter(currentChapter || null);
+
+        // Restore last page position if returning to same chapter
+        if (progress?.chapterId === chapterId && progress.page) {
+          setCurrentPage(progress.page);
+        } else {
+          setCurrentPage(0);
+        }
+      } catch (error) {
+        console.error('Error fetching reader data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [mangaId, chapterId]);
+
+  // Save reading progress
+  useEffect(() => {
+    if (chapterId && !loading) {
+      const saveProgress = () => {
+        updateProgress(chapterId, currentPage);
+      };
+      
+      // Debounce saving
+      const timer = setTimeout(saveProgress, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentPage, chapterId, loading, updateProgress]);
+
+  const pages = chapter?.images || [];
+  const chapterIndex = manga?.chapters.findIndex(c => c.id === chapterId) || 0;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -82,10 +151,32 @@ const Reader = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (!manga || !chapter) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Chapter not found</p>
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Chapter not found</p>
+          <Button onClick={() => navigate(-1)}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (pages.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">No pages available for this chapter</p>
+          <Button onClick={() => navigate(`/manga/${mangaId}`)}>Back to Manga</Button>
+        </div>
       </div>
     );
   }
@@ -93,7 +184,7 @@ const Reader = () => {
   return (
     <>
       <Helmet>
-        <title>{`${chapter.title} - ${manga.title} | MangaHub`}</title>
+        <title>{`${chapter.title || `Chapter ${chapter.number}`} - ${manga.title} | ComickTown`}</title>
       </Helmet>
 
       <div
@@ -119,7 +210,9 @@ const Reader = () => {
                   </Link>
                   <div>
                     <h1 className="text-foreground font-medium line-clamp-1">{manga.title}</h1>
-                    <p className="text-sm text-muted-foreground">{chapter.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {chapter.title || `Chapter ${chapter.number}`}
+                    </p>
                   </div>
                 </div>
 
@@ -273,7 +366,7 @@ const Reader = () => {
                     size="icon"
                     onClick={() => setShowChapterList(false)}
                   >
-                    <X className="h-5 w-5" />
+                    <ChevronRight className="h-5 w-5" />
                   </Button>
                 </div>
                 <div className="p-2">
@@ -291,7 +384,9 @@ const Reader = () => {
                           : 'hover:bg-muted'
                       }`}
                     >
-                      <span className="font-medium">{ch.title}</span>
+                      <span className="font-medium">
+                        {ch.title || `Chapter ${ch.number}`}
+                      </span>
                     </button>
                   ))}
                 </div>

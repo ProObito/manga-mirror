@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Plus, Trash2, Upload, FileText } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Trash2, Upload, FileText, FolderUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import ChapterUploader from './ChapterUploader';
 
 interface Chapter {
   id?: string;
@@ -404,66 +405,95 @@ const MangaEditor = () => {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {chapters.map((chapter, index) => (
-                    <div key={index} className="border border-border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">Chapter {chapter.number}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => removeChapter(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Chapter Number</Label>
-                          <Input
-                            type="number"
-                            value={chapter.number}
-                            onChange={(e) => updateChapter(index, { number: parseFloat(e.target.value) || 0 })}
-                          />
+                  {chapters.map((chapter, index) => {
+                    const [showUploader, setShowUploader] = useState(false);
+                    
+                    return (
+                      <div key={index} className="border border-border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">Chapter {chapter.number}</span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowUploader(!showUploader)}
+                              className="gap-1"
+                            >
+                              <FolderUp className="h-4 w-4" />
+                              Upload
+                              {showUploader ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => removeChapter(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Title</Label>
-                          <Input
-                            value={chapter.title}
-                            onChange={(e) => updateChapter(index, { title: e.target.value })}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Chapter Number</Label>
+                            <Input
+                              type="number"
+                              value={chapter.number}
+                              onChange={(e) => updateChapter(index, { number: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Title</Label>
+                            <Input
+                              value={chapter.title}
+                              onChange={(e) => updateChapter(index, { title: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                        
+                        {showUploader && id && (
+                          <ChapterUploader
+                            mangaId={id}
+                            chapterNumber={chapter.number}
+                            existingImages={chapter.images}
+                            onUploadComplete={(urls) => updateChapter(index, { images: urls })}
                           />
+                        )}
+                        
+                        {!showUploader && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Image URLs ({chapter.images.length} images)</Label>
+                            <Textarea
+                              value={chapter.images.join('\n')}
+                              onChange={(e) => updateChapter(index, { images: e.target.value.split('\n').filter(Boolean) })}
+                              placeholder="https://example.com/page1.jpg&#10;https://example.com/page2.jpg"
+                              rows={3}
+                            />
+                          </div>
+                        )}
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Token Cost</Label>
+                            <Input
+                              type="number"
+                              value={chapter.token_cost}
+                              onChange={(e) => updateChapter(index, { token_cost: parseInt(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 pt-5">
+                            <input
+                              type="checkbox"
+                              checked={chapter.is_locked}
+                              onChange={(e) => updateChapter(index, { is_locked: e.target.checked })}
+                              className="h-4 w-4"
+                            />
+                            <Label className="text-xs">Locked</Label>
+                          </div>
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Image URLs (one per line)</Label>
-                        <Textarea
-                          value={chapter.images.join('\n')}
-                          onChange={(e) => updateChapter(index, { images: e.target.value.split('\n').filter(Boolean) })}
-                          placeholder="https://example.com/page1.jpg&#10;https://example.com/page2.jpg"
-                          rows={3}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Token Cost</Label>
-                          <Input
-                            type="number"
-                            value={chapter.token_cost}
-                            onChange={(e) => updateChapter(index, { token_cost: parseInt(e.target.value) || 0 })}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2 pt-5">
-                          <input
-                            type="checkbox"
-                            checked={chapter.is_locked}
-                            onChange={(e) => updateChapter(index, { is_locked: e.target.checked })}
-                            className="h-4 w-4"
-                          />
-                          <Label className="text-xs">Locked</Label>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
