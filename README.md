@@ -1,73 +1,194 @@
-# Welcome to your Lovable project
+<h2 align="center">
+    ──「 𝗖𝗢𝗠𝗜𝗖𝗞𝗧𝗢𝗪𝗡 」──
+</h2>
 
-## Project info
+<p align="center">
+  <img src="https://files.catbox.moe/60ewq7.jpg">
+</p>
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+<p align="center">
+<b>A Modern Manga • Manhwa • Manhua Reading Platform</b>
+</p>
 
-## How can I edit this code?
+<p align="center">
+Dark • Fast • Automated • Scalable
+</p>
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## 🌐 About Comicktown
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+**Comicktown** is a full-featured comic reading website designed to support:
 
-Changes made via Lovable will be committed automatically to this repo.
+- Online reading
+- PDF downloads
+- Manual uploads
+- Automated multi-site scraping
+- Admin & Owner control system
+- Secure email OTP login
 
-**Use your preferred IDE**
+This project focuses on **automation + full control**, built for long-term scalability.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 Tech Stack
 
-Follow these steps:
+- **Frontend**:  
+  - Vite  
+  - React  
+  - TypeScript  
+  - Tailwind CSS  
+  - shadcn/ui  
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- **Backend**:  
+  - Node.js  
+  - Express  
+  - MongoDB (Atlas)  
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Others**:  
+  - Email OTP authentication  
+  - Modular scraper engine  
+  - File-based content storage  
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## ✨ Core Features
 
-**Edit a file directly in GitHub**
+### 📚 Reading System
+- Online reader (smooth & fast)
+- PDF download support
+- Resume reading
+- Bookmark system
+- Reading history
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### 📤 Manual Upload System
+- Admin creates manga in **Draft mode**
+- Upload chapters **one by one**
+- Supports **PDF chapters**
+- Unlimited chapters
+- Publish only when ready
+- Full edit & reorder control
 
-**Use GitHub Codespaces**
+### 🤖 Automation
+- Telegram bot based uploads
+- Auto chapter sequencing
+- Bot uploads editable from dashboard
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 🕷️ Multi-Site Scraper System
+- Scrape content from multiple external sites
+- Each site handled by a separate scraper module
+- Scraped content saved as draft
+- Admin approval before publish
+- Auto updates when new chapters release
+- Multiple sources per manga supported
 
-## What technologies are used for this project?
+### 👑 Admin & Owner System
+- Role-based access:
+  - Owner
+  - Admin
+  - Moderator
+  - User
+- Only Owner can:
+  - Add / remove admins
+  - Enable or disable scrapers
+- Analytics dashboard:
+  - Trending manga
+  - Recently viewed
+  - Newly added
 
-This project is built with:
+### 🔐 Authentication
+- Email OTP login
+- No passwords
+- Secure session handling
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+## 📊 View & Download Logic
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- Views counted **only on Comicktown**
+- External site views ignored
+- Download count tracked separately
+- Anti-fake view protection
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## 🗂️ Database Structure
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- **User Database**
+  - Users
+  - OTP logs
+  - Roles
+  - Sessions
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- **Content Database**
+  - Manga
+  - Chapters
+  - Sources
+  - Scraper metadata
+  - Views & downloads
+
+> User data and content data are **strictly separated**
+
+---
+
+## ⚙️ Configuration
+
+All sensitive data such as:
+- MongoDB connection
+- Email service
+- API secrets
+
+are stored using **environment variables** or a **central config file**  
+(no hard-coded credentials).
+
+---
+
+## 🌍 Deployment
+
+This project can be deployed using:
+- Lovable hosting
+- Custom VPS
+- Any Node-compatible hosting
+
+Frontend and backend can be hosted **independently**.
+
+---
+
+## 🛡️ Security
+
+- Rate limiting
+- OTP expiry
+- Scraper authentication
+- Secure file uploads
+- No public write access
+
+---
+
+## 🎯 Project Goal
+
+To build a **powerful, private, and automated comic platform**  
+where the **owner always stays in control**  
+and the system can scale without breaking.
+
+---
+
+<h3 align="center">
+    ─「 𝗦𝗨𝗣𝗣𝗢𝗥𝗧 」─
+</h3>
+
+<p align="center">
+For issues, ideas, or improvements  
+open an issue or contact the project owner.
+</p>
+
+---
+<p align="center">
+  <img src="https://files.catbox.moe/5cfoob.jpg">
+</p>
+<h3 align="center">
+    ─「 𝗖𝗥𝗘𝗗𝗜𝗧𝗦 」─
+</h3>
+
+<p align="center">
+Built with ❤️ for comic readers & creators
+</p>
