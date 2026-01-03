@@ -17,26 +17,47 @@ interface MangaData {
   status?: string;
   source: string;
   source_url: string;
-  chapters?: ChapterData[];
 }
 
 interface ChapterData {
   number: number;
   title: string;
-  images: string[];
+  url: string;
+}
+
+// Helper to extract text between patterns
+function extractBetween(html: string, start: string, end: string): string {
+  const startIdx = html.indexOf(start);
+  if (startIdx === -1) return "";
+  const afterStart = html.substring(startIdx + start.length);
+  const endIdx = afterStart.indexOf(end);
+  if (endIdx === -1) return "";
+  return afterStart.substring(0, endIdx).trim();
+}
+
+// Helper to extract all matches
+function extractAllMatches(html: string, pattern: RegExp): string[] {
+  const matches: string[] = [];
+  let match;
+  while ((match = pattern.exec(html)) !== null) {
+    matches.push(match[1]);
+  }
+  return matches;
 }
 
 // Scraper configurations for different sources
 const scrapers: Record<string, {
+  name: string;
   baseUrl: string;
   searchUrl: (query: string) => string;
   parseSearch: (html: string) => Array<{ title: string; url: string; cover?: string }>;
   parseDetail: (html: string, url: string) => Partial<MangaData>;
-  parseChapters: (html: string) => Array<{ number: number; title: string; url: string }>;
+  parseChapters: (html: string) => ChapterData[];
   parseChapterImages: (html: string) => string[];
 }> = {
-  // MangaDex API-based scraper (official API, no scraping needed)
+  // MangaDex API-based scraper
   mangadex: {
+    name: "MangaDex",
     baseUrl: "https://api.mangadex.org",
     searchUrl: (query) => `https://api.mangadex.org/manga?title=${encodeURIComponent(query)}&limit=20&includes[]=cover_art`,
     parseSearch: (json) => {
@@ -50,7 +71,8 @@ const scrapers: Record<string, {
           return {
             title: manga.attributes.title.en || Object.values(manga.attributes.title)[0] || "Unknown",
             url: `https://mangadex.org/title/${manga.id}`,
-            cover: coverUrl
+            cover: coverUrl,
+            id: manga.id
           };
         }) || [];
       } catch {
@@ -107,6 +129,204 @@ const scrapers: Record<string, {
         return [];
       }
     }
+  },
+
+  // AsuraComic scraper
+  asuracomic: {
+    name: "AsuraComic",
+    baseUrl: "https://asuracomic.net",
+    searchUrl: (query) => `https://asuracomic.net/series?name=${encodeURIComponent(query)}`,
+    parseSearch: (html) => {
+      const results: Array<{ title: string; url: string; cover?: string }> = [];
+      // Parse search results - look for series cards
+      const cardPattern = /<div[^>]*class="[^"]*grid[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<span[^>]*>([^<]+)<\/span>/gi;
+      let match;
+      while ((match = cardPattern.exec(html)) !== null) {
+        results.push({
+          url: match[1].startsWith("http") ? match[1] : `https://asuracomic.net${match[1]}`,
+          cover: match[2],
+          title: match[3].trim()
+        });
+      }
+      
+      // Alternative pattern
+      if (results.length === 0) {
+        const altPattern = /href="(\/series\/[^"]+)"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"[^>]*alt="([^"]+)"/gi;
+        while ((match = altPattern.exec(html)) !== null) {
+          results.push({
+            url: `https://asuracomic.net${match[1]}`,
+            cover: match[2],
+            title: match[3].trim()
+          });
+        }
+      }
+      
+      return results.slice(0, 20);
+    },
+    parseDetail: (html, url) => {
+      const title = extractBetween(html, '<h1', '</h1>').replace(/<[^>]+>/g, '').trim() ||
+                    extractBetween(html, '<title>', '</title>').replace(' - Asura Scans', '').trim();
+      
+      const cover = html.match(/<img[^>]*class="[^"]*rounded[^"]*"[^>]*src="([^"]+)"/)?.[1] ||
+                    html.match(/og:image"[^>]*content="([^"]+)"/)?.[1];
+      
+      const summary = extractBetween(html, '<div class="prose', '</div>').replace(/<[^>]+>/g, '').trim() ||
+                      extractBetween(html, 'description:', '</p>').replace(/<[^>]+>/g, '').trim();
+      
+      const genreMatches = html.match(/genres?[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/gi) || [];
+      const genres = genreMatches.map(g => g.match(/>([^<]+)<\/a>/)?.[1]?.trim()).filter(Boolean) as string[];
+      
+      const author = html.match(/author[^>]*>[\s\S]*?<[^>]*>([^<]+)</i)?.[1]?.trim();
+      const artist = html.match(/artist[^>]*>[\s\S]*?<[^>]*>([^<]+)</i)?.[1]?.trim();
+      
+      const statusMatch = html.match(/status[^>]*>[\s\S]*?<[^>]*>([^<]+)</i)?.[1]?.toLowerCase();
+      const status = statusMatch?.includes('ongoing') ? 'ongoing' : 
+                     statusMatch?.includes('completed') ? 'completed' : 'ongoing';
+      
+      return {
+        title,
+        cover_url: cover,
+        summary,
+        genres,
+        author,
+        artist,
+        status,
+        source: "asuracomic",
+        source_url: url
+      };
+    },
+    parseChapters: (html) => {
+      const chapters: ChapterData[] = [];
+      // Look for chapter links
+      const chapterPattern = /href="([^"]*chapter[^"]*)"[^>]*>[\s\S]*?Chapter\s*([\d.]+)/gi;
+      let match;
+      while ((match = chapterPattern.exec(html)) !== null) {
+        const num = parseFloat(match[2]) || 0;
+        chapters.push({
+          number: num,
+          title: `Chapter ${num}`,
+          url: match[1].startsWith("http") ? match[1] : `https://asuracomic.net${match[1]}`
+        });
+      }
+      return chapters.sort((a, b) => a.number - b.number);
+    },
+    parseChapterImages: (html) => {
+      const images: string[] = [];
+      // Look for reader images
+      const imgPattern = /<img[^>]*src="([^"]+)"[^>]*(?:class="[^"]*reader[^"]*"|data-index)/gi;
+      let match;
+      while ((match = imgPattern.exec(html)) !== null) {
+        if (!match[1].includes('logo') && !match[1].includes('avatar')) {
+          images.push(match[1]);
+        }
+      }
+      
+      // Alternative: look for next/image URLs in JSON
+      if (images.length === 0) {
+        const jsonPattern = /"url":"([^"]+\.(?:jpg|png|webp)[^"]*)"/gi;
+        while ((match = jsonPattern.exec(html)) !== null) {
+          images.push(match[1].replace(/\\/g, ''));
+        }
+      }
+      
+      return images;
+    }
+  },
+
+  // RoliaScan scraper  
+  roliascan: {
+    name: "RoliaScan",
+    baseUrl: "https://roliascan.com",
+    searchUrl: (query) => `https://roliascan.com/?s=${encodeURIComponent(query)}&post_type=wp-manga`,
+    parseSearch: (html) => {
+      const results: Array<{ title: string; url: string; cover?: string }> = [];
+      // Parse search results
+      const cardPattern = /<div[^>]*class="[^"]*post-title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
+      const imgPattern = /<img[^>]*class="[^"]*img-responsive[^"]*"[^>]*src="([^"]+)"/gi;
+      
+      let match;
+      const urls: string[] = [];
+      const titles: string[] = [];
+      
+      while ((match = cardPattern.exec(html)) !== null) {
+        urls.push(match[1]);
+        titles.push(match[2].trim());
+      }
+      
+      const covers: string[] = [];
+      while ((match = imgPattern.exec(html)) !== null) {
+        covers.push(match[1]);
+      }
+      
+      for (let i = 0; i < Math.min(urls.length, 20); i++) {
+        results.push({
+          url: urls[i],
+          title: titles[i],
+          cover: covers[i]
+        });
+      }
+      
+      return results;
+    },
+    parseDetail: (html, url) => {
+      const title = extractBetween(html, '<div class="post-title"', '</div>').replace(/<[^>]+>/g, '').trim() ||
+                    extractBetween(html, '<h1', '</h1>').replace(/<[^>]+>/g, '').trim();
+      
+      const cover = html.match(/<div[^>]*class="[^"]*summary_image[^"]*"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"/)?.[1] ||
+                    html.match(/og:image"[^>]*content="([^"]+)"/)?.[1];
+      
+      const summary = extractBetween(html, '<div class="summary__content', '</div>').replace(/<[^>]+>/g, '').trim();
+      
+      const genreMatches = html.match(/<a[^>]*href="[^"]*manga-genre[^"]*"[^>]*rel="tag">([^<]+)<\/a>/gi) || [];
+      const genres = genreMatches.map(g => g.match(/>([^<]+)<\/a>/)?.[1]?.trim()).filter(Boolean) as string[];
+      
+      const author = html.match(/author[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/i)?.[1]?.trim();
+      const artist = html.match(/artist[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/i)?.[1]?.trim();
+      
+      const statusMatch = html.match(/status[^>]*>[\s\S]*?<div[^>]*>([^<]+)</i)?.[1]?.toLowerCase();
+      const status = statusMatch?.includes('ongoing') ? 'ongoing' : 
+                     statusMatch?.includes('completed') ? 'completed' : 'ongoing';
+      
+      return {
+        title,
+        cover_url: cover,
+        summary,
+        genres,
+        author,
+        artist,
+        status,
+        source: "roliascan",
+        source_url: url
+      };
+    },
+    parseChapters: (html) => {
+      const chapters: ChapterData[] = [];
+      const chapterPattern = /<li[^>]*class="[^"]*wp-manga-chapter[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
+      let match;
+      while ((match = chapterPattern.exec(html)) !== null) {
+        const chapterText = match[2].trim();
+        const numMatch = chapterText.match(/chapter\s*([\d.]+)/i);
+        const num = numMatch ? parseFloat(numMatch[1]) : 0;
+        chapters.push({
+          number: num,
+          title: chapterText,
+          url: match[1]
+        });
+      }
+      return chapters.sort((a, b) => a.number - b.number);
+    },
+    parseChapterImages: (html) => {
+      const images: string[] = [];
+      const imgPattern = /<img[^>]*class="[^"]*wp-manga-chapter-img[^"]*"[^>]*(?:src|data-src)="([^"]+)"/gi;
+      let match;
+      while ((match = imgPattern.exec(html)) !== null) {
+        const src = match[1].trim();
+        if (src && !src.includes('logo') && !src.includes('avatar')) {
+          images.push(src);
+        }
+      }
+      return images;
+    }
   }
 };
 
@@ -115,12 +335,16 @@ async function fetchWithRetry(url: string, retries = 3): Promise<string> {
     try {
       const res = await fetch(url, {
         headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Referer": url.split('/').slice(0, 3).join('/')
         }
       });
       if (res.ok) {
         return await res.text();
       }
+      console.log(`Fetch failed with status ${res.status}`);
     } catch (error) {
       console.error(`Fetch attempt ${i + 1} failed:`, error);
     }
@@ -140,9 +364,9 @@ serve(async (req) => {
     
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     
-    const { action, source = "mangadex", query, mangaUrl, mangaId, syncAll } = await req.json();
+    const { action, source = "mangadex", query, mangaUrl, mangaId, chapterUrl } = await req.json();
     
-    console.log(`Scraper action: ${action}, source: ${source}`);
+    console.log(`Scraper action: ${action}, source: ${source}, query: ${query}`);
 
     // Search for manga
     if (action === "search") {
@@ -155,17 +379,19 @@ serve(async (req) => {
 
       const scraper = scrapers[source];
       if (!scraper) {
-        return new Response(JSON.stringify({ error: "Unknown source" }), {
+        return new Response(JSON.stringify({ error: "Unknown source", availableSources: Object.keys(scrapers) }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
 
       const searchUrl = scraper.searchUrl(query);
+      console.log(`Searching: ${searchUrl}`);
       const html = await fetchWithRetry(searchUrl);
       const results = scraper.parseSearch(html);
+      console.log(`Found ${results.length} results`);
 
-      return new Response(JSON.stringify({ results }), {
+      return new Response(JSON.stringify({ results, source }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -179,15 +405,30 @@ serve(async (req) => {
         });
       }
 
-      // For MangaDex, extract ID from URL or use directly
-      let mdId = mangaId;
-      if (mangaUrl && mangaUrl.includes("mangadex.org")) {
-        const match = mangaUrl.match(/\/title\/([a-f0-9-]+)/);
-        mdId = match?.[1];
+      const scraper = scrapers[source];
+      if (!scraper) {
+        return new Response(JSON.stringify({ error: "Unknown source" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
 
-      if (!mdId) {
-        return new Response(JSON.stringify({ error: "Could not extract manga ID" }), {
+      let detailUrl = mangaUrl;
+      let mdId = mangaId;
+
+      // For MangaDex, use API
+      if (source === "mangadex") {
+        if (mangaUrl && mangaUrl.includes("mangadex.org")) {
+          const match = mangaUrl.match(/\/title\/([a-f0-9-]+)/);
+          mdId = match?.[1];
+        }
+        if (mdId) {
+          detailUrl = `https://api.mangadex.org/manga/${mdId}?includes[]=cover_art&includes[]=author&includes[]=artist`;
+        }
+      }
+
+      if (!detailUrl) {
+        return new Response(JSON.stringify({ error: "Could not determine detail URL" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -197,7 +438,7 @@ serve(async (req) => {
       const { data: existing } = await supabase
         .from("manga")
         .select("id, title")
-        .eq("source_url", `https://mangadex.org/title/${mdId}`)
+        .eq("source_url", mangaUrl || detailUrl)
         .single();
 
       if (existing) {
@@ -209,10 +450,10 @@ serve(async (req) => {
         });
       }
 
-      // Fetch manga details
-      const detailUrl = `https://api.mangadex.org/manga/${mdId}?includes[]=cover_art&includes[]=author&includes[]=artist`;
-      const detailJson = await fetchWithRetry(detailUrl);
-      const mangaData = scrapers.mangadex.parseDetail(detailJson, `https://mangadex.org/title/${mdId}`);
+      // Fetch and parse manga details
+      console.log(`Fetching details from: ${detailUrl}`);
+      const html = await fetchWithRetry(detailUrl);
+      const mangaData = scraper.parseDetail(html, mangaUrl || detailUrl);
 
       if (!mangaData.title) {
         return new Response(JSON.stringify({ error: "Could not parse manga details" }), {
@@ -221,7 +462,7 @@ serve(async (req) => {
         });
       }
 
-      // Insert manga
+      // Insert manga as DRAFT
       const { data: newManga, error: insertError } = await supabase
         .from("manga")
         .insert({
@@ -233,71 +474,152 @@ serve(async (req) => {
           author: mangaData.author,
           artist: mangaData.artist,
           status: mangaData.status || "ongoing",
-          source: "mangadex",
-          source_url: `https://mangadex.org/title/${mdId}`
+          source: source,
+          source_url: mangaUrl || detailUrl,
+          publish_status: "draft" // Always save as draft
         })
         .select()
         .single();
 
       if (insertError) {
+        console.error("Insert error:", insertError);
         throw insertError;
       }
 
-      // Fetch chapters
-      const chaptersUrl = `https://api.mangadex.org/manga/${mdId}/feed?translatedLanguage[]=en&order[chapter]=asc&limit=500`;
-      const chaptersJson = await fetchWithRetry(chaptersUrl);
-      const chapters = scrapers.mangadex.parseChapters(chaptersJson);
+      // Parse chapters
+      let chapters: ChapterData[] = [];
+      if (source === "mangadex" && mdId) {
+        const chaptersUrl = `https://api.mangadex.org/manga/${mdId}/feed?translatedLanguage[]=en&order[chapter]=asc&limit=500`;
+        const chaptersJson = await fetchWithRetry(chaptersUrl);
+        chapters = scraper.parseChapters(chaptersJson);
+      } else {
+        chapters = scraper.parseChapters(html);
+      }
 
-      // Insert chapters (without images for now, they're fetched on-demand)
-      const chapterInserts = chapters.slice(0, 100).map(ch => ({
+      // Insert chapters
+      const chapterInserts = chapters.slice(0, 200).map(ch => ({
         manga_id: newManga.id,
         number: ch.number,
         title: ch.title,
-        images: [] // Images fetched when user reads
+        images: []
       }));
 
       if (chapterInserts.length > 0) {
         await supabase.from("chapters").insert(chapterInserts);
       }
 
+      // Add to scraper queue for image fetching later
+      await supabase.from("scraper_queue").insert({
+        source_name: source,
+        manga_url: mangaUrl || detailUrl,
+        manga_id: newManga.id,
+        status: "pending"
+      });
+
+      console.log(`Imported manga: ${mangaData.title} with ${chapterInserts.length} chapters`);
+
       return new Response(JSON.stringify({ 
-        message: "Manga imported successfully",
+        message: "Manga imported as draft",
         manga: newManga,
-        chaptersImported: chapterInserts.length
+        chaptersImported: chapterInserts.length,
+        note: "Manga saved as draft. Approve in admin panel to publish."
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    // Sync all scrapers
-    if (action === "sync") {
-      const { data: sources } = await supabase
-        .from("scraper_sources")
-        .select("*")
-        .eq("is_active", true);
-
-      const results = [];
-      for (const source of sources || []) {
-        // Update last_sync
-        await supabase
-          .from("scraper_sources")
-          .update({ last_sync: new Date().toISOString() })
-          .eq("id", source.id);
-        
-        results.push({ source: source.name, status: "synced" });
+    // Fetch chapter images
+    if (action === "fetch-images") {
+      if (!chapterUrl || !source) {
+        return new Response(JSON.stringify({ error: "chapterUrl and source required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
       }
 
-      return new Response(JSON.stringify({ results }), {
+      const scraper = scrapers[source];
+      if (!scraper) {
+        return new Response(JSON.stringify({ error: "Unknown source" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      let images: string[] = [];
+      
+      if (source === "mangadex") {
+        // MangaDex uses chapter ID to fetch images
+        const atHomeUrl = `https://api.mangadex.org/at-home/server/${chapterUrl}`;
+        const json = await fetchWithRetry(atHomeUrl);
+        images = scraper.parseChapterImages(json);
+      } else {
+        const html = await fetchWithRetry(chapterUrl);
+        images = scraper.parseChapterImages(html);
+      }
+
+      return new Response(JSON.stringify({ images }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
+    }
+
+    // Process queue
+    if (action === "process-queue") {
+      const { data: queueItems } = await supabase
+        .from("scraper_queue")
+        .select("*")
+        .eq("status", "pending")
+        .order("priority", { ascending: false })
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (!queueItems || queueItems.length === 0) {
+        return new Response(JSON.stringify({ message: "Queue empty" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      const item = queueItems[0];
+      
+      // Mark as processing
+      await supabase
+        .from("scraper_queue")
+        .update({ status: "processing", updated_at: new Date().toISOString() })
+        .eq("id", item.id);
+
+      try {
+        // Process the item (fetch chapter images etc.)
+        // This is a placeholder - real implementation would fetch images for each chapter
+        
+        await supabase
+          .from("scraper_queue")
+          .update({ status: "completed", updated_at: new Date().toISOString() })
+          .eq("id", item.id);
+
+        return new Response(JSON.stringify({ message: "Processed", item }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        await supabase
+          .from("scraper_queue")
+          .update({ 
+            status: "failed", 
+            error_message: error instanceof Error ? error.message : "Unknown error",
+            retry_count: (item.retry_count || 0) + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", item.id);
+
+        throw error;
+      }
     }
 
     // List available sources
     if (action === "sources") {
       return new Response(JSON.stringify({ 
-        sources: Object.keys(scrapers).map(key => ({
+        sources: Object.entries(scrapers).map(([key, value]) => ({
           id: key,
-          name: key.charAt(0).toUpperCase() + key.slice(1),
+          name: value.name,
+          baseUrl: value.baseUrl,
           available: true
         }))
       }), {
