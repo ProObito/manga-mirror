@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookMarked, Plus, Search, Edit, Trash2, Eye, Loader2 } from 'lucide-react';
+import { BookMarked, Plus, Search, Edit, Trash2, Eye, Loader2, CheckCircle, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,10 +34,12 @@ interface MangaItem {
   title: string;
   cover_url: string | null;
   status: string | null;
+  publish_status: string | null;
   genres: string[] | null;
   view_count: number | null;
   rating: number | null;
   created_at: string | null;
+  source: string | null;
 }
 
 const MangaList = () => {
@@ -54,7 +56,7 @@ const MangaList = () => {
     try {
       const { data, error } = await supabase
         .from('manga')
-        .select('id, title, cover_url, status, genres, view_count, rating, created_at')
+        .select('id, title, cover_url, status, publish_status, genres, view_count, rating, created_at, source')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -69,18 +71,30 @@ const MangaList = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      // First delete all chapters
       await supabase.from('chapters').delete().eq('manga_id', id);
-      
-      // Then delete the manga
       const { error } = await supabase.from('manga').delete().eq('id', id);
       if (error) throw error;
-
       toast.success('Manga deleted successfully');
       fetchManga();
     } catch (error) {
       console.error('Error deleting manga:', error);
       toast.error('Failed to delete manga');
+    }
+  };
+
+  const handlePublish = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'published' ? 'draft' : 'published';
+    try {
+      const { error } = await supabase
+        .from('manga')
+        .update({ publish_status: newStatus })
+        .eq('id', id);
+      if (error) throw error;
+      toast.success(newStatus === 'published' ? 'Manga published!' : 'Manga unpublished');
+      fetchManga();
+    } catch (error) {
+      console.error('Error updating publish status:', error);
+      toast.error('Failed to update status');
     }
   };
 
@@ -99,6 +113,13 @@ const MangaList = () => {
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
+  };
+
+  const getPublishBadge = (status: string | null) => {
+    if (status === 'published') {
+      return <Badge className="bg-primary/20 text-primary border-primary/30">Published</Badge>;
+    }
+    return <Badge variant="outline" className="border-yellow-500/30 text-yellow-500">Draft</Badge>;
   };
 
   return (
@@ -143,9 +164,9 @@ const MangaList = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Manga</TableHead>
+                  <TableHead>Publish</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Views</TableHead>
-                  <TableHead>Rating</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -162,16 +183,28 @@ const MangaList = () => {
                         <div>
                           <p className="font-medium">{m.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {m.genres?.slice(0, 2).join(', ')}
+                            {m.source === 'manual' ? 'Manual' : m.source} • {m.genres?.slice(0, 2).join(', ')}
                           </p>
                         </div>
                       </div>
                     </TableCell>
+                    <TableCell>{getPublishBadge(m.publish_status)}</TableCell>
                     <TableCell>{getStatusBadge(m.status)}</TableCell>
                     <TableCell>{m.view_count?.toLocaleString() || 0}</TableCell>
-                    <TableCell>{m.rating?.toFixed(1) || 'N/A'}</TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handlePublish(m.id, m.publish_status || 'draft')}
+                          title={m.publish_status === 'published' ? 'Unpublish' : 'Publish'}
+                        >
+                          {m.publish_status === 'published' ? (
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          )}
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"

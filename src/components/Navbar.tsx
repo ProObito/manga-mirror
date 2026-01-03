@@ -5,6 +5,7 @@ import { Menu, X, Search, BookOpen, Flame, Clock, Star, LogIn, LogOut, Shield } 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import ThemeSelector from './ThemeSelector';
 
 const navLinks = [
   { name: 'Home', href: '/' },
@@ -61,6 +62,7 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <ThemeSelector />
             <Link to="/search">
               <Button variant="ghost" size="icon" className="hidden sm:flex">
                 <Search className="h-5 w-5" />

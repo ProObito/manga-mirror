@@ -74,32 +74,41 @@ export type Database = {
       }
       chapters: {
         Row: {
+          chapter_type: string | null
           created_at: string | null
+          download_count: number | null
           id: string
           images: string[] | null
           is_locked: boolean | null
           manga_id: string
           number: number
+          pdf_url: string | null
           title: string | null
           token_cost: number | null
         }
         Insert: {
+          chapter_type?: string | null
           created_at?: string | null
+          download_count?: number | null
           id?: string
           images?: string[] | null
           is_locked?: boolean | null
           manga_id: string
           number: number
+          pdf_url?: string | null
           title?: string | null
           token_cost?: number | null
         }
         Update: {
+          chapter_type?: string | null
           created_at?: string | null
+          download_count?: number | null
           id?: string
           images?: string[] | null
           is_locked?: boolean | null
           manga_id?: string
           number?: number
+          pdf_url?: string | null
           title?: string | null
           token_cost?: number | null
         }
@@ -151,6 +160,7 @@ export type Database = {
           created_at: string | null
           genres: string[] | null
           id: string
+          publish_status: string
           rating: number | null
           rating_count: number | null
           released: string | null
@@ -170,6 +180,7 @@ export type Database = {
           created_at?: string | null
           genres?: string[] | null
           id?: string
+          publish_status?: string
           rating?: number | null
           rating_count?: number | null
           released?: string | null
@@ -189,6 +200,7 @@ export type Database = {
           created_at?: string | null
           genres?: string[] | null
           id?: string
+          publish_status?: string
           rating?: number | null
           rating_count?: number | null
           released?: string | null
@@ -209,6 +221,7 @@ export type Database = {
           display_name: string | null
           email: string
           id: string
+          theme_preference: string | null
           tokens: number | null
           updated_at: string | null
         }
@@ -218,6 +231,7 @@ export type Database = {
           display_name?: string | null
           email: string
           id: string
+          theme_preference?: string | null
           tokens?: number | null
           updated_at?: string | null
         }
@@ -227,6 +241,7 @@ export type Database = {
           display_name?: string | null
           email?: string
           id?: string
+          theme_preference?: string | null
           tokens?: number | null
           updated_at?: string | null
         }
@@ -329,6 +344,53 @@ export type Database = {
           },
           {
             foreignKeyName: "reading_history_manga_id_fkey"
+            columns: ["manga_id"]
+            isOneToOne: false
+            referencedRelation: "manga"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scraper_queue: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          manga_id: string | null
+          manga_url: string
+          priority: number | null
+          retry_count: number | null
+          source_name: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          manga_id?: string | null
+          manga_url: string
+          priority?: number | null
+          retry_count?: number | null
+          source_name: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          manga_id?: string | null
+          manga_url?: string
+          priority?: number | null
+          retry_count?: number | null
+          source_name?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scraper_queue_manga_id_fkey"
             columns: ["manga_id"]
             isOneToOne: false
             referencedRelation: "manga"
