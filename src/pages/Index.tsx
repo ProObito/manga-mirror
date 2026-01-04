@@ -5,6 +5,7 @@ import SearchBar from '@/components/SearchBar';
 import MangaGrid from '@/components/MangaGrid';
 import FeaturesSection from '@/components/FeaturesSection';
 import Footer from '@/components/Footer';
+import { ContinueReading } from '@/components/ContinueReading';
 
 const Index = () => {
   return (
@@ -31,6 +32,9 @@ const Index = () => {
               <SearchBar />
             </div>
           </section>
+
+          {/* Continue Reading Section */}
+          <ContinueReading />
           
           {/* Manga Grid Sections */}
           <section className="py-8">
