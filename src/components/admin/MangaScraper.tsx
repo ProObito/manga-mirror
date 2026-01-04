@@ -26,7 +26,8 @@ interface ScraperSource {
   id: string;
   name: string;
   baseUrl: string;
-  available: boolean;
+  available?: boolean;
+  type?: 'metadata' | 'content';
 }
 
 interface QueueItem {
@@ -59,8 +60,18 @@ const MangaScraper = () => {
       const { data, error } = await supabase.functions.invoke('manga-scraper', {
         body: { action: 'sources' }
       });
-      if (data?.sources) {
-        setSources(data.sources);
+      if (data) {
+        // Combine metadata and content sources
+        const allSources = [
+          ...(data.metadataSources || []),
+          ...(data.contentSources || []),
+          ...(data.sources || [])
+        ];
+        // Remove duplicates by id
+        const uniqueSources = allSources.filter((source, index, self) =>
+          index === self.findIndex((s) => s.id === source.id)
+        );
+        setSources(uniqueSources);
       }
     } catch (error) {
       console.error('Failed to fetch sources:', error);
@@ -196,23 +207,41 @@ const MangaScraper = () => {
               <CardDescription>Choose which source to search from</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {sources.map((source) => (
-                  <Button
-                    key={source.id}
-                    variant={activeSource === source.id ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      setActiveSource(source.id);
-                      setSearchResults([]);
-                    }}
-                    disabled={!source.available}
-                  >
-                    {source.name}
-                  </Button>
-                ))}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">Metadata Sources (for info):</p>
+                <div className="flex flex-wrap gap-2">
+                  {sources.filter(s => s.type === 'metadata' || ['mangadex', 'webtoons', 'tapas', 'manta'].includes(s.id)).map((source) => (
+                    <Button
+                      key={source.id}
+                      variant={activeSource === source.id ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setActiveSource(source.id);
+                        setSearchResults([]);
+                      }}
+                    >
+                      {source.name}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground pt-2">Content Sources (for chapters):</p>
+                <div className="flex flex-wrap gap-2">
+                  {sources.filter(s => s.type === 'content' || ['asuracomic', 'roliascan'].includes(s.id)).map((source) => (
+                    <Button
+                      key={source.id}
+                      variant={activeSource === source.id ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setActiveSource(source.id);
+                        setSearchResults([]);
+                      }}
+                    >
+                      {source.name}
+                    </Button>
+                  ))}
+                </div>
                 {sources.length === 0 && (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant={activeSource === 'mangadex' ? 'default' : 'outline'}
                       size="sm"
@@ -221,18 +250,32 @@ const MangaScraper = () => {
                       MangaDex (Metadata)
                     </Button>
                     <Button
+                      variant={activeSource === 'webtoons' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setActiveSource('webtoons')}
+                    >
+                      Webtoons (Metadata)
+                    </Button>
+                    <Button
+                      variant={activeSource === 'tapas' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setActiveSource('tapas')}
+                    >
+                      Tapas (Metadata)
+                    </Button>
+                    <Button
                       variant={activeSource === 'asuracomic' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setActiveSource('asuracomic')}
                     >
-                      AsuraComic
+                      AsuraComic (Content)
                     </Button>
                     <Button
                       variant={activeSource === 'roliascan' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setActiveSource('roliascan')}
                     >
-                      RoliaScan
+                      RoliaScan (Content)
                     </Button>
                   </div>
                 )}

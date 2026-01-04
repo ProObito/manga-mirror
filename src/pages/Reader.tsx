@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,16 +10,21 @@ import {
   Maximize,
   Minimize,
   Loader2,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useReadingProgress } from '@/hooks/useReadingProgress';
+import { useAutoScroll } from '@/hooks/useAutoScroll';
+import { AutoScrollControls } from '@/components/AutoScrollControls';
 
 interface Chapter {
   id: string;
   number: number;
   title: string | null;
   images: string[] | null;
+  chapter_type: string | null;
+  pdf_url: string | null;
 }
 
 interface Manga {
@@ -38,8 +43,9 @@ const Reader = () => {
   const [loading, setLoading] = useState(true);
   const [manga, setManga] = useState<Manga | null>(null);
   const [chapter, setChapter] = useState<Chapter | null>(null);
-  
   const { progress, updateProgress } = useReadingProgress(mangaId, chapterId);
+  const autoScroll = useAutoScroll();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch manga and chapter data
   useEffect(() => {
@@ -60,7 +66,7 @@ const Reader = () => {
         // Fetch all chapters for navigation
         const { data: chaptersData, error: chaptersError } = await supabase
           .from('chapters')
-          .select('id, number, title, images')
+          .select('id, number, title, images, chapter_type, pdf_url')
           .eq('manga_id', mangaId)
           .order('number', { ascending: true });
 
@@ -105,6 +111,7 @@ const Reader = () => {
   }, [currentPage, chapterId, loading, updateProgress]);
 
   const pages = chapter?.images || [];
+  const isPdfChapter = chapter?.chapter_type === 'pdf' && chapter?.pdf_url;
   const chapterIndex = manga?.chapters.findIndex(c => c.id === chapterId) || 0;
 
   const handleKeyDown = useCallback(
@@ -170,7 +177,7 @@ const Reader = () => {
     );
   }
 
-  if (pages.length === 0) {
+  if (pages.length === 0 && !isPdfChapter) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -217,6 +224,17 @@ const Reader = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Auto Scroll Controls */}
+                  <AutoScrollControls
+                    enabled={autoScroll.settings.enabled}
+                    speed={autoScroll.settings.speed}
+                    isPaused={autoScroll.isPaused}
+                    pauseOnManualScroll={autoScroll.settings.pauseOnManualScroll}
+                    onToggle={autoScroll.toggleEnabled}
+                    onSpeedChange={autoScroll.setSpeed}
+                    onPauseOnManualScrollToggle={autoScroll.togglePauseOnManualScroll}
+                    onResume={autoScroll.resumeFromPause}
+                  />
                   <Button
                     variant="glass"
                     size="icon"
@@ -243,16 +261,28 @@ const Reader = () => {
         </AnimatePresence>
 
         {/* Main Content */}
-        <div className="flex items-center justify-center min-h-screen">
-          <motion.img
-            key={currentPage}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
-            src={pages[currentPage]}
-            alt={`Page ${currentPage + 1}`}
-            className="max-h-screen max-w-full object-contain"
-          />
+        <div 
+          ref={scrollContainerRef}
+          className="flex flex-col items-center min-h-screen overflow-auto"
+          onScroll={autoScroll.handleManualScroll}
+        >
+          {isPdfChapter ? (
+            <iframe
+              src={chapter.pdf_url!}
+              className="w-full h-screen"
+              title={`${chapter.title || `Chapter ${chapter.number}`}`}
+            />
+          ) : (
+            <motion.img
+              key={currentPage}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+              src={pages[currentPage]}
+              alt={`Page ${currentPage + 1}`}
+              className="max-h-screen max-w-full object-contain"
+            />
+          )}
         </div>
 
         {/* Navigation Areas */}
