@@ -14,7 +14,7 @@ import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { MangaLibrary } from "./components/MangaLibrary";
 
-// ✅ NEW IMPORTS (jo tu chahta tha)
+// ✅ Correct imports (NO MangaListx)
 import MangaList from "./components/MangaList";
 import SearchBar from "./components/SearchBar";
 import LatestUpdates from "./components/LatestUpdates";
@@ -22,7 +22,7 @@ import StatsWidget from "./components/StatsWidget";
 
 const queryClient = new QueryClient();
 
-// ✅ HOME UI (router ke liye alag component)
+/* ================= HOME PAGE ================= */
 function Home() {
   return (
     <div className="min-h-screen bg-black text-white">
@@ -55,6 +55,7 @@ function Home() {
   );
 }
 
+/* ================= APP ================= */
 const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
@@ -65,7 +66,6 @@ const App = () => (
 
           <BrowserRouter>
             <Routes>
-              {/* ✅ HOME */}
               <Route path="/" element={<Home />} />
 
               <Route path="/browse" element={<Browse />} />
