@@ -3,7 +3,7 @@
  * Connects to your Heroku backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://comicktown-backend.herokuapp.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://townbackend-825d5dfe9e19.herokuapp.com/';
 
 export interface Manga {
   _id?: string;
