@@ -15,8 +15,8 @@ import NotFound from "./pages/NotFound";
 import { MangaLibrary } from "./components/MangaLibrary";
 
 // ✅ NEW IMPORTS (jo tu chahta tha)
-import MangaList from "./components/MangaListx";
-import SearchBar from "./components/SearchBarx";
+import MangaList from "./components/MangaList";
+import SearchBar from "./components/SearchBar";
 import LatestUpdates from "./components/LatestUpdates";
 import StatsWidget from "./components/StatsWidget";
 
