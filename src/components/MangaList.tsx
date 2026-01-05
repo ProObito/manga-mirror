@@ -1,30 +1,96 @@
-import { useEffect, useState } from 'react';
+/**
+ * Manga List Component - Updated to use new backend
+ */
+import { useState } from 'react';
+import { useManga } from '../hooks/useManga';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export function MangaList() {
-  const [manga, setManga] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+const SITES = ['asura', 'comix', 'roliascan', 'vortexscans', 'reaperscans', 'stonescape', 'omegascans', 'allmanga'];
 
-  useEffect(() => {
-    fetch('https://townbackend-825d5dfe9e19.herokuapp.com/api/manga/list')
-      .then(res => res.json())
-      .then(data => setManga(data.manga || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+export default function MangaList() {
+  const [selectedSite, setSelectedSite] = useState<string | undefined>(undefined);
+  const { manga, loading, error } = useManga(selectedSite, 50);
 
-  if (loading) return <div className="text-white">Loading...</div>;
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-500">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6">
-      <h2 className="text-3xl font-bold text-white mb-6">Manga List</h2>
-      <div className="space-y-4">
-        {manga.map(m => (
-          <div key={m.id} className="bg-gray-800 p-4 rounded-lg">
-            <h3 className="text-white font-bold">{m.title}</h3>
-            <p className="text-gray-400">{m.chapters?.length || 0} chapters</p>
-          </div>
+    <div className="space-y-6">
+      {/* Site Filter */}
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          variant={selectedSite === undefined ? 'default' : 'outline'}
+          onClick={() => setSelectedSite(undefined)}
+          size="sm"
+        >
+          All Sites
+        </Button>
+        {SITES.map(site => (
+          <Button
+            key={site}
+            variant={selectedSite === site ? 'default' : 'outline'}
+            onClick={() => setSelectedSite(site)}
+            size="sm"
+            className="capitalize"
+          >
+            {site}
+          </Button>
         ))}
       </div>
+
+      {/* Manga Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {loading ? (
+          Array(12).fill(0).map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <Skeleton className="h-64 w-full" />
+              <CardContent className="p-3">
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-3 w-16" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          manga.map((m) => (
+            <Card 
+              key={m._id || m.url} 
+              className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+              onClick={() => window.location.href = `/manga/${encodeURIComponent(m.url)}`}
+            >
+              <div className="aspect-[3/4] overflow-hidden bg-gray-900">
+                <img
+                  src={m.cover_image || '/placeholder.jpg'}
+                  alt={m.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  loading="lazy"
+                />
+              </div>
+              <CardContent className="p-3">
+                <h3 className="font-semibold text-sm line-clamp-2 mb-1">
+                  {m.title}
+                </h3>
+                <Badge variant="secondary" className="text-xs capitalize">
+                  {m.site}
+                </Badge>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {!loading && manga.length === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          No manga found
+        </div>
+      )}
     </div>
   );
 }
