@@ -8,6 +8,7 @@ import ScraperManagement from './ScraperManagement';
 import PromoManagement from './PromoManagement';
 import AdminSettings from './AdminSettings';
 import MangaScraper from './MangaScraper';
+import BackendSync from './BackendSync';
 
 // NEW scraper panel component
 import AdminScraper from '@/components/AdminScraper';
@@ -25,6 +26,7 @@ const AdminContent = () => {
               <div className="space-y-6">
                 <h1 className="text-3xl font-bold">Dashboard</h1>
                 <DashboardOverview />
+                <BackendSync />
                 <AdminScraper />
               </div>
             }
@@ -49,6 +51,17 @@ const AdminContent = () => {
               <div className="space-y-6">
                 <h1 className="text-3xl font-bold">Scraping Control</h1>
                 <AdminScraper />
+              </div>
+            }
+          />
+
+          {/* BACKEND SYNC */}
+          <Route
+            path="sync"
+            element={
+              <div className="space-y-6">
+                <h1 className="text-3xl font-bold">Backend Sync</h1>
+                <BackendSync />
               </div>
             }
           />
