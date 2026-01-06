@@ -6,51 +6,15 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/hooks/useAuth";
 
+import Index from "./pages/Index";
 import Browse from "./pages/Browse";
 import MangaDetail from "./pages/MangaDetail";
 import Reader from "./pages/Reader";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
-import { MangaLibrary } from "./components/MangaLibrary";
-
-import MangaList from "./components/MangaList";
-import SearchBar from "./components/SearchBar";
-import LatestUpdates from "./components/LatestUpdates";
-import StatsWidget from "./components/StatsWidget";
 
 const queryClient = new QueryClient();
-
-function Home() {
-  return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-gray-800 p-4">
-        <div className="container mx-auto">
-          <h1 className="text-2xl font-bold">COMICKTOWN</h1>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <StatsWidget />
-        </div>
-
-        <div className="mb-8 flex justify-center">
-          <SearchBar />
-        </div>
-
-        <div className="mb-12">
-          <LatestUpdates />
-        </div>
-
-        <div>
-          <h2 className="text-2xl font-bold mb-6">All Manga</h2>
-          <MangaList />
-        </div>
-      </main>
-    </div>
-  );
-}
 
 const App = () => (
   <HelmetProvider>
@@ -62,7 +26,7 @@ const App = () => (
 
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Index />} />
 
               <Route path="/browse" element={<Browse />} />
               <Route path="/trending" element={<Browse />} />
@@ -70,11 +34,8 @@ const App = () => (
               <Route path="/top-rated" element={<Browse />} />
               <Route path="/search" element={<Browse />} />
 
-              <Route path="/library" element={<MangaLibrary />} />
-              <Route path="/manga/:mangaUrl" element={<MangaDetail />} />
               <Route path="/manga/:id" element={<MangaDetail />} />
               <Route path="/read/:mangaId/:chapterId" element={<Reader />} />
-              <Route path="/read/:chapterUrl" element={<Reader />} />
 
               <Route path="/auth" element={<Auth />} />
               <Route path="/login" element={<Auth />} />
