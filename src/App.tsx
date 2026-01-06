@@ -14,7 +14,6 @@ import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { MangaLibrary } from "./components/MangaLibrary";
 
-// ✅ Correct imports (NO MangaListx)
 import MangaList from "./components/MangaList";
 import SearchBar from "./components/SearchBar";
 import LatestUpdates from "./components/LatestUpdates";
@@ -22,14 +21,12 @@ import StatsWidget from "./components/StatsWidget";
 
 const queryClient = new QueryClient();
 
-/* ================= HOME PAGE ================= */
 function Home() {
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-gray-800 p-4">
         <div className="container mx-auto">
           <h1 className="text-2xl font-bold">COMICKTOWN</h1>
-          <p className="text-sm text-gray-400">8 Sites • Unlimited Manga</p>
         </div>
       </header>
 
@@ -55,7 +52,6 @@ function Home() {
   );
 }
 
-/* ================= APP ================= */
 const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
@@ -75,8 +71,10 @@ const App = () => (
               <Route path="/search" element={<Browse />} />
 
               <Route path="/library" element={<MangaLibrary />} />
+              <Route path="/manga/:mangaUrl" element={<MangaDetail />} />
               <Route path="/manga/:id" element={<MangaDetail />} />
               <Route path="/read/:mangaId/:chapterId" element={<Reader />} />
+              <Route path="/read/:chapterUrl" element={<Reader />} />
 
               <Route path="/auth" element={<Auth />} />
               <Route path="/login" element={<Auth />} />
