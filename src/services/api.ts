@@ -1,9 +1,9 @@
 /**
  * Comicktown Backend API Service
- * Connects to your Heroku backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://townbackend-825d5dfe9e19.herokuapp.com/';
+// ✅ HARDCODED URL - Works immediately
+const API_BASE_URL = 'https://townbackend-825d5dfe9e19.herokuapp.com';
 
 export interface Manga {
   _id?: string;
@@ -45,13 +45,12 @@ class ComicktownAPI {
     this.baseUrl = baseUrl;
   }
 
-  // Health check
   async health(): Promise<any> {
     const response = await fetch(`${this.baseUrl}/health`);
+    if (!response.ok) throw new Error('Health check failed');
     return response.json();
   }
 
-  // Get all manga
   async getManga(site?: string, limit: number = 100): Promise<{ manga: Manga[]; count: number }> {
     const params = new URLSearchParams();
     if (site) params.append('site', site);
@@ -62,7 +61,6 @@ class ComicktownAPI {
     return response.json();
   }
 
-  // Get chapters for a manga
   async getChapters(mangaUrl: string): Promise<{ chapters: Chapter[]; count: number }> {
     const encodedUrl = encodeURIComponent(mangaUrl);
     const response = await fetch(`${this.baseUrl}/api/manga/${encodedUrl}/chapters`);
@@ -70,7 +68,6 @@ class ComicktownAPI {
     return response.json();
   }
 
-  // Search manga
   async searchManga(query: string, site?: string): Promise<{ manga: Manga[]; count: number }> {
     const params = new URLSearchParams({ q: query });
     if (site) params.append('site', site);
@@ -80,21 +77,18 @@ class ComicktownAPI {
     return response.json();
   }
 
-  // Get latest updates
   async getLatest(limit: number = 20): Promise<{ chapters: Chapter[]; count: number }> {
     const response = await fetch(`${this.baseUrl}/api/latest?limit=${limit}`);
     if (!response.ok) throw new Error('Failed to fetch latest');
     return response.json();
   }
 
-  // Get stats
   async getStats(): Promise<Stats> {
     const response = await fetch(`${this.baseUrl}/api/stats`);
     if (!response.ok) throw new Error('Failed to fetch stats');
     return response.json();
   }
 
-  // Trigger scraping
   async triggerScrape(): Promise<any> {
     const response = await fetch(`${this.baseUrl}/api/trigger-scrape`, {
       method: 'POST',
@@ -104,7 +98,6 @@ class ComicktownAPI {
     return response.json();
   }
 
-  // Sync to Supabase
   async syncToSite(limit: number = 100): Promise<any> {
     const response = await fetch(`${this.baseUrl}/api/sync-to-site`, {
       method: 'POST',
