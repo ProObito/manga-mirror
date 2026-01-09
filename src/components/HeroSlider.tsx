@@ -1,30 +1,133 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Star, Eye, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getMostRatedManga } from '@/lib/mock-data';
-import { Manga } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface SliderManga {
+  id: string;
+  title: string;
+  cover_url: string | null;
+  summary: string | null;
+  genres: string[] | null;
+  status: string | null;
+  rating: number | null;
+  rating_count: number | null;
+  chapter_count: number;
+}
 
 const HeroSlider = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
-  const topRatedManga = getMostRatedManga().slice(0, 5);
+  const [topRatedManga, setTopRatedManga] = useState<SliderManga[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTopRated = async () => {
+      try {
+        const { data: mangaData, error } = await supabase
+          .from('manga')
+          .select('id, title, cover_url, summary, genres, status, rating, rating_count')
+          .eq('publish_status', 'published')
+          .order('rating', { ascending: false })
+          .limit(5);
+
+        if (error) throw error;
+
+        if (mangaData && mangaData.length > 0) {
+          // Get chapter counts
+          const mangaWithChapters = await Promise.all(
+            mangaData.map(async (manga) => {
+              const { count } = await supabase
+                .from('chapters')
+                .select('*', { count: 'exact', head: true })
+                .eq('manga_id', manga.id);
+              
+              return {
+                ...manga,
+                chapter_count: count || 0,
+              };
+            })
+          );
+          setTopRatedManga(mangaWithChapters);
+        }
+      } catch (error) {
+        console.error('Error fetching top rated manga:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTopRated();
+  }, []);
 
   const nextSlide = useCallback(() => {
+    if (topRatedManga.length === 0) return;
     setCurrentIndex((prev) => (prev + 1) % topRatedManga.length);
   }, [topRatedManga.length]);
 
   const prevSlide = useCallback(() => {
+    if (topRatedManga.length === 0) return;
     setCurrentIndex((prev) => (prev - 1 + topRatedManga.length) % topRatedManga.length);
   }, [topRatedManga.length]);
 
   useEffect(() => {
-    if (!isAutoPlaying) return;
+    if (!isAutoPlaying || topRatedManga.length === 0) return;
     const interval = setInterval(nextSlide, 5000);
     return () => clearInterval(interval);
-  }, [isAutoPlaying, nextSlide]);
+  }, [isAutoPlaying, nextSlide, topRatedManga.length]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <section className="relative min-h-[80vh] flex items-center overflow-hidden bg-background">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
+            <div className="space-y-6">
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-20 w-3/4" />
+              <div className="flex gap-2">
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-16" />
+              </div>
+              <Skeleton className="h-24 w-full" />
+              <div className="flex gap-4">
+                <Skeleton className="h-12 w-40" />
+                <Skeleton className="h-12 w-32" />
+              </div>
+            </div>
+            <div className="hidden lg:block">
+              <Skeleton className="w-80 h-[480px] mx-auto rounded-2xl" />
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Empty state - no manga available
+  if (topRatedManga.length === 0) {
+    return (
+      <section className="relative min-h-[60vh] flex items-center overflow-hidden bg-gradient-to-b from-primary/10 to-background">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="font-display text-4xl md:text-6xl mb-4">Welcome to ComickTown</h1>
+          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+            Your ultimate destination for manga and webtoons. Content is being added soon!
+          </p>
+          <Link to="/browse">
+            <Button variant="hero" size="xl" className="mt-8">
+              <BookOpen className="h-5 w-5 mr-2" />
+              Browse Library
+            </Button>
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   const currentManga = topRatedManga[currentIndex];
 
@@ -42,7 +145,7 @@ const HeroSlider = () => {
         >
           <div
             className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${currentManga.cover})` }}
+            style={{ backgroundImage: `url(${currentManga.cover_url || '/placeholder.svg'})` }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/60" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/50" />
@@ -68,7 +171,7 @@ const HeroSlider = () => {
                   #{currentIndex + 1} Top Rated
                 </Badge>
                 <Badge variant="status">
-                  {currentManga.status}
+                  {currentManga.status || 'Ongoing'}
                 </Badge>
               </div>
 
@@ -77,7 +180,7 @@ const HeroSlider = () => {
               </h1>
 
               <div className="flex flex-wrap gap-2">
-                {currentManga.genres.slice(0, 4).map((genre) => (
+                {(currentManga.genres || []).slice(0, 4).map((genre) => (
                   <Badge key={genre} variant="genre">
                     {genre}
                   </Badge>
@@ -85,18 +188,18 @@ const HeroSlider = () => {
               </div>
 
               <p className="text-muted-foreground text-lg max-w-xl line-clamp-3">
-                {currentManga.summary}
+                {currentManga.summary || 'No summary available.'}
               </p>
 
               <div className="flex items-center gap-6 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Star className="h-4 w-4 text-primary fill-primary" />
-                  <span className="text-foreground font-semibold">{currentManga.rating}</span>
-                  <span>({currentManga.ratingCount.toLocaleString()} ratings)</span>
+                  <span className="text-foreground font-semibold">{currentManga.rating || 0}</span>
+                  <span>({(currentManga.rating_count || 0).toLocaleString()} ratings)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4" />
-                  <span>{currentManga.chapters.length} chapters</span>
+                  <span>{currentManga.chapter_count} chapters</span>
                 </div>
               </div>
 
@@ -129,7 +232,7 @@ const HeroSlider = () => {
               <div className="relative mx-auto w-80">
                 <div className="absolute -inset-4 bg-gradient-primary rounded-2xl blur-2xl opacity-30 animate-pulse-glow" />
                 <img
-                  src={currentManga.cover}
+                  src={currentManga.cover_url || '/placeholder.svg'}
                   alt={currentManga.title}
                   className="relative w-full h-[480px] object-cover rounded-2xl shadow-2xl"
                 />
