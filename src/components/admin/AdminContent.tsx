@@ -9,6 +9,7 @@ import PromoManagement from './PromoManagement';
 import AdminSettings from './AdminSettings';
 import MangaScraper from './MangaScraper';
 import BackendSync from './BackendSync';
+import ContentExtractor from './ContentExtractor';
 
 // NEW scraper panel component
 import AdminScraper from '@/components/AdminScraper';
@@ -62,6 +63,16 @@ const AdminContent = () => {
               <div className="space-y-6">
                 <h1 className="text-3xl font-bold">Backend Sync</h1>
                 <BackendSync />
+              </div>
+            }
+          />
+
+          {/* CONTENT EXTRACTOR */}
+          <Route
+            path="extractor"
+            element={
+              <div className="space-y-6">
+                <ContentExtractor />
               </div>
             }
           />

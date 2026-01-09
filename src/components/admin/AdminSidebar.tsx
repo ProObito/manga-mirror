@@ -14,7 +14,8 @@ import {
   ChevronRight,
   Shield,
   Download,
-  RefreshCw
+  RefreshCw,
+  CloudDownload
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button';
 const menuItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Manga', href: '/admin/manga', icon: BookMarked },
+  { name: 'Content Extractor', href: '/admin/extractor', icon: CloudDownload },
   { name: 'Backend Sync', href: '/admin/sync', icon: RefreshCw },
   { name: 'Import Manga', href: '/admin/import', icon: FileCode },
   { name: 'Scraping Control', href: '/admin/scraper', icon: Download },
