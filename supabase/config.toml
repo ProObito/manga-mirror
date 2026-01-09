@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.manga-scraper]
 verify_jwt = false
+
+[functions.content-extractor]
+verify_jwt = false
