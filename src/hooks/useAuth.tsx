@@ -9,6 +9,7 @@ interface AuthContextType {
   userRole: 'user' | 'admin' | 'owner' | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
   isOwner: boolean;
@@ -58,7 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
       setUserRole(data.role as 'user' | 'admin' | 'owner');
@@ -89,6 +90,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -108,6 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         userRole,
         signIn,
         signUp,
+        signInWithGoogle,
         signOut,
         isAdmin,
         isOwner,
