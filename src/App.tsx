@@ -12,6 +12,8 @@ import MangaDetail from "./pages/MangaDetail";
 import Reader from "./pages/Reader";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
+import Library from "./pages/Library";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +41,8 @@ const App = () => (
 
               <Route path="/auth" element={<Auth />} />
               <Route path="/login" element={<Auth />} />
+              <Route path="/library" element={<Library />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="/admin/*" element={<Admin />} />
 
               <Route path="*" element={<NotFound />} />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Search, BookOpen, Flame, Clock, Star, LogIn, LogOut, Shield } from 'lucide-react';
+import { Menu, X, Search, BookOpen, Flame, Clock, Star, LogIn, LogOut, Shield, Library, Settings, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -71,6 +71,17 @@ const Navbar = () => {
             
             {user ? (
               <>
+                <Link to="/library">
+                  <Button variant="ghost" size="sm" className="hidden sm:flex gap-2">
+                    <Library className="h-4 w-4" />
+                    Library
+                  </Button>
+                </Link>
+                <Link to="/settings">
+                  <Button variant="ghost" size="icon" className="hidden sm:flex">
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </Link>
                 {isAdmin && (
                   <Link to="/admin">
                     <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
@@ -139,6 +150,14 @@ const Navbar = () => {
                     </Link>
                   );
                 })}
+                <Link to="/library" onClick={() => setIsOpen(false)} className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3">
+                  <Library className="h-5 w-5" />
+                  My Library
+                </Link>
+                <Link to="/settings" onClick={() => setIsOpen(false)} className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3">
+                  <Settings className="h-5 w-5" />
+                  Settings
+                </Link>
                 {isAdmin && (
                   <Link to="/admin" onClick={() => setIsOpen(false)} className="px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted flex items-center gap-3">
                     <Shield className="h-5 w-5" />
