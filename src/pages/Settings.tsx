@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Camera, Crown, Link as LinkIcon, Save, Shield, Palette, Download, Server } from 'lucide-react';
@@ -26,11 +26,11 @@ const Settings = () => {
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize form values when profile loads
-  useState(() => {
+  useEffect(() => {
     if (profile) {
       setDisplayName(profile.displayName || '');
     }
-  });
+  }, [profile]);
 
   if (authLoading || profileLoading) {
     return (

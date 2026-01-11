@@ -17,6 +17,28 @@ export interface UserProfile {
 }
 
 const MAX_FREE_DOWNLOADS = 20;
+const DOWNLOAD_STORAGE_KEY = 'manga_download_data';
+
+interface DownloadData {
+  count: number;
+  lastReset: string;
+}
+
+const getDownloadData = (userId: string): DownloadData => {
+  try {
+    const stored = localStorage.getItem(`${DOWNLOAD_STORAGE_KEY}_${userId}`);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return { count: 0, lastReset: new Date().toISOString() };
+};
+
+const setDownloadData = (userId: string, data: DownloadData) => {
+  localStorage.setItem(`${DOWNLOAD_STORAGE_KEY}_${userId}`, JSON.stringify(data));
+};
 
 export const useUserProfile = () => {
   const { user } = useAuth();
@@ -39,21 +61,19 @@ export const useUserProfile = () => {
 
       if (error) throw error;
 
-      // Check if download count should be reset (monthly)
-      const lastReset = data.last_download_reset ? new Date(data.last_download_reset) : null;
+      // Get download data from localStorage (until DB migration is applied)
+      const downloadData = getDownloadData(user.id);
+      const lastReset = new Date(downloadData.lastReset);
       const now = new Date();
-      const shouldReset = !lastReset || 
-        (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear());
+      
+      // Check if download count should be reset (monthly)
+      const shouldReset = now.getMonth() !== lastReset.getMonth() || 
+                          now.getFullYear() !== lastReset.getFullYear();
 
-      if (shouldReset && !data.is_premium) {
-        // Reset download count for new month
-        await supabase
-          .from('profiles')
-          .update({ 
-            download_count: 0, 
-            last_download_reset: now.toISOString() 
-          })
-          .eq('id', user.id);
+      if (shouldReset) {
+        downloadData.count = 0;
+        downloadData.lastReset = now.toISOString();
+        setDownloadData(user.id, downloadData);
       }
 
       setProfile({
@@ -62,15 +82,32 @@ export const useUserProfile = () => {
         displayName: data.display_name,
         avatarUrl: data.avatar_url,
         tokens: data.tokens || 0,
-        isPremium: data.is_premium || false,
-        premiumExpiresAt: data.premium_expires_at,
-        customLogoUrl: data.custom_logo_url,
-        downloadCount: shouldReset ? 0 : (data.download_count || 0),
-        lastDownloadReset: data.last_download_reset,
+        isPremium: false, // Will be enabled after migration
+        premiumExpiresAt: null,
+        customLogoUrl: null,
+        downloadCount: downloadData.count,
+        lastDownloadReset: downloadData.lastReset,
         themePreference: data.theme_preference,
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
+      // Create a minimal profile from auth user
+      if (user) {
+        const downloadData = getDownloadData(user.id);
+        setProfile({
+          id: user.id,
+          email: user.email || '',
+          displayName: user.user_metadata?.display_name || null,
+          avatarUrl: user.user_metadata?.avatar_url || null,
+          tokens: 0,
+          isPremium: false,
+          premiumExpiresAt: null,
+          customLogoUrl: null,
+          downloadCount: downloadData.count,
+          lastDownloadReset: downloadData.lastReset,
+          themePreference: null,
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -87,7 +124,6 @@ export const useUserProfile = () => {
       const dbUpdates: Record<string, unknown> = {};
       if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
       if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
-      if (updates.customLogoUrl !== undefined) dbUpdates.custom_logo_url = updates.customLogoUrl;
       if (updates.themePreference !== undefined) dbUpdates.theme_preference = updates.themePreference;
 
       const { error } = await supabase
@@ -149,7 +185,8 @@ export const useUserProfile = () => {
         .from('custom-logos')
         .getPublicUrl(fileName);
 
-      await updateProfile({ customLogoUrl: publicUrl });
+      // Store in profile state only (no DB column yet)
+      setProfile(prev => prev ? { ...prev, customLogoUrl: publicUrl } : null);
       return { error: null, url: publicUrl };
     } catch (error) {
       console.error('Error uploading custom logo:', error);
@@ -176,12 +213,10 @@ export const useUserProfile = () => {
     try {
       const newCount = profile.downloadCount + 1;
       
-      const { error } = await supabase
-        .from('profiles')
-        .update({ download_count: newCount })
-        .eq('id', user.id);
-
-      if (error) throw error;
+      // Store in localStorage
+      const downloadData = getDownloadData(user.id);
+      downloadData.count = newCount;
+      setDownloadData(user.id, downloadData);
 
       setProfile(prev => prev ? { ...prev, downloadCount: newCount } : null);
       return { error: null };
