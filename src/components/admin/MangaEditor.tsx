@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Plus, Trash2, Upload, FileText, FolderUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Trash2, FileText, FolderUp, ChevronDown, ChevronUp, GripVertical, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ChapterUploader from './ChapterUploader';
@@ -26,6 +36,18 @@ interface Chapter {
   token_cost: number;
 }
 
+interface MangaData {
+  title: string;
+  alternative_names: string[];
+  cover_url: string;
+  summary: string;
+  genres: string[];
+  author: string;
+  artist: string;
+  status: string;
+  released: string;
+}
+
 const MangaEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -33,12 +55,12 @@ const MangaEditor = () => {
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [manga, setManga] = useState({
+  const [manga, setManga] = useState<MangaData>({
     title: '',
-    alternative_names: [] as string[],
+    alternative_names: [],
     cover_url: '',
     summary: '',
-    genres: [] as string[],
+    genres: [],
     author: '',
     artist: '',
     status: 'ongoing',
@@ -48,6 +70,64 @@ const MangaEditor = () => {
   const [genreInput, setGenreInput] = useState('');
   const [altNameInput, setAltNameInput] = useState('');
   const [openUploaderIndex, setOpenUploaderIndex] = useState<number | null>(null);
+  
+  // Autosave and dirty state
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const initialDataRef = useRef<{ manga: MangaData; chapters: Chapter[] } | null>(null);
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Check if data has changed
+  const checkForChanges = useCallback(() => {
+    if (!initialDataRef.current) return false;
+    const mangaChanged = JSON.stringify(manga) !== JSON.stringify(initialDataRef.current.manga);
+    const chaptersChanged = JSON.stringify(chapters) !== JSON.stringify(initialDataRef.current.chapters);
+    return mangaChanged || chaptersChanged;
+  }, [manga, chapters]);
+
+  // Update dirty state when data changes
+  useEffect(() => {
+    if (initialDataRef.current) {
+      setHasUnsavedChanges(checkForChanges());
+    }
+  }, [manga, chapters, checkForChanges]);
+
+  // Autosave effect
+  useEffect(() => {
+    if (!isEditing || !hasUnsavedChanges || !id) return;
+
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = setTimeout(() => {
+      handleAutosave();
+    }, 3000);
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [manga, chapters, isEditing, hasUnsavedChanges, id]);
+
+  // Browser beforeunload warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (isEditing && id) {
@@ -66,7 +146,7 @@ const MangaEditor = () => {
 
       if (mangaError) throw mangaError;
 
-      setManga({
+      const loadedManga: MangaData = {
         title: mangaData.title || '',
         alternative_names: mangaData.alternative_names || [],
         cover_url: mangaData.cover_url || '',
@@ -76,7 +156,8 @@ const MangaEditor = () => {
         artist: mangaData.artist || '',
         status: mangaData.status || 'ongoing',
         released: mangaData.released || '',
-      });
+      };
+      setManga(loadedManga);
 
       const { data: chaptersData } = await supabase
         .from('chapters')
@@ -84,9 +165,8 @@ const MangaEditor = () => {
         .eq('manga_id', mangaId)
         .order('number', { ascending: true });
 
-      if (chaptersData) {
-        setChapters(
-          chaptersData.map((c) => ({
+      const loadedChapters: Chapter[] = chaptersData
+        ? chaptersData.map((c) => ({
             id: c.id,
             number: Number(c.number),
             title: c.title || '',
@@ -94,13 +174,83 @@ const MangaEditor = () => {
             is_locked: c.is_locked || false,
             token_cost: c.token_cost || 0,
           }))
-        );
-      }
+        : [];
+      setChapters(loadedChapters);
+
+      // Store initial data for comparison
+      initialDataRef.current = { manga: loadedManga, chapters: loadedChapters };
     } catch (error) {
       console.error('Error fetching manga:', error);
       toast.error('Failed to fetch manga');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAutosave = async () => {
+    if (!id || saving) return;
+
+    setSaving(true);
+    try {
+      await supabase
+        .from('manga')
+        .update({
+          title: manga.title,
+          alternative_names: manga.alternative_names,
+          cover_url: manga.cover_url,
+          summary: manga.summary,
+          genres: manga.genres,
+          author: manga.author,
+          artist: manga.artist,
+          status: manga.status,
+          released: manga.released,
+        })
+        .eq('id', id);
+
+      // Save chapters
+      for (const chapter of chapters) {
+        if (chapter.id) {
+          await supabase
+            .from('chapters')
+            .update({
+              number: chapter.number,
+              title: chapter.title,
+              images: chapter.images,
+              is_locked: chapter.is_locked,
+              token_cost: chapter.token_cost,
+            })
+            .eq('id', chapter.id);
+        } else {
+          const { data } = await supabase
+            .from('chapters')
+            .insert({
+              manga_id: id,
+              number: chapter.number,
+              title: chapter.title,
+              images: chapter.images,
+              is_locked: chapter.is_locked,
+              token_cost: chapter.token_cost,
+            })
+            .select()
+            .single();
+          
+          if (data) {
+            // Update the chapter with the new ID
+            setChapters(prev => prev.map(c => 
+              c.number === chapter.number && !c.id ? { ...c, id: data.id } : c
+            ));
+          }
+        }
+      }
+
+      // Update initial data reference
+      initialDataRef.current = { manga, chapters };
+      setHasUnsavedChanges(false);
+      toast.success('Auto-saved', { duration: 1500 });
+    } catch (error) {
+      console.error('Autosave error:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -177,13 +327,31 @@ const MangaEditor = () => {
         }
       }
 
+      setHasUnsavedChanges(false);
       toast.success(isEditing ? 'Manga updated' : 'Manga created');
       navigate('/admin/manga');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save manga';
       console.error('Error saving manga:', error);
-      toast.error(error.message || 'Failed to save manga');
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleNavigateBack = () => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation('/admin/manga');
+      setShowExitDialog(true);
+    } else {
+      navigate('/admin/manga');
+    }
+  };
+
+  const confirmNavigation = () => {
+    setShowExitDialog(false);
+    if (pendingNavigation) {
+      navigate(pendingNavigation);
     }
   };
 
@@ -242,6 +410,47 @@ const MangaEditor = () => {
     toast.success('Chapter removed');
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = async (targetIndex: number) => {
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newChapters = [...chapters];
+    const [draggedChapter] = newChapters.splice(draggedIndex, 1);
+    newChapters.splice(targetIndex, 0, draggedChapter);
+
+    // Renumber chapters based on new order
+    const renumberedChapters = newChapters.map((chapter, index) => ({
+      ...chapter,
+      number: index + 1,
+    }));
+
+    setChapters(renumberedChapters);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -252,14 +461,43 @@ const MangaEditor = () => {
 
   return (
     <div className="space-y-6">
+      {/* Unsaved changes dialog */}
+      <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to leave? Your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmNavigation}>Leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/admin/manga')}>
+        <Button variant="ghost" size="icon" onClick={handleNavigateBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-display tracking-wide">
-            {isEditing ? 'Edit Manga' : 'Add New Manga'}
-          </h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-display tracking-wide">
+              {isEditing ? 'Edit Manga' : 'Add New Manga'}
+            </h1>
+            {hasUnsavedChanges && (
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                Unsaved changes
+              </span>
+            )}
+            {saving && (
+              <span className="text-xs text-primary flex items-center gap-1">
+                <Save className="h-3 w-3 animate-pulse" />
+                Saving...
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground mt-1">
             {isEditing ? 'Update manga details and chapters' : 'Create a new manga entry'}
           </p>
@@ -398,10 +636,13 @@ const MangaEditor = () => {
           {/* Chapters */}
           <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Chapters
-              </CardTitle>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Chapters
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Drag to reorder chapters</p>
+              </div>
               <Button variant="outline" size="sm" onClick={addChapter} className="gap-1">
                 <Plus className="h-4 w-4" />
                 Add Chapter
@@ -413,14 +654,30 @@ const MangaEditor = () => {
                   No chapters yet. Click "Add Chapter" to create one.
                 </p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {chapters.map((chapter, index) => {
                     const showUploader = openUploaderIndex === index;
+                    const isDragging = draggedIndex === index;
+                    const isDragOver = dragOverIndex === index;
 
                     return (
-                      <div key={chapter.id ?? `new-${index}`} className="border border-border rounded-lg p-4 space-y-3">
+                      <div
+                        key={chapter.id ?? `new-${index}`}
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={() => handleDrop(index)}
+                        onDragEnd={handleDragEnd}
+                        className={`border rounded-lg p-4 space-y-3 transition-all cursor-move ${
+                          isDragging ? 'opacity-50 border-primary' : 'border-border'
+                        } ${isDragOver ? 'border-primary border-2 bg-primary/5' : ''}`}
+                      >
                         <div className="flex items-center justify-between">
-                          <span className="font-medium">Chapter {chapter.number}</span>
+                          <div className="flex items-center gap-2">
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">Chapter {chapter.number}</span>
+                          </div>
                           <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
