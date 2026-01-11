@@ -3,17 +3,19 @@
  * Priority: Asura > Other sites
  * Prevents duplicate manga
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, Upload, Database, CheckCircle, AlertCircle } from 'lucide-react';
+import { RefreshCw, Upload, Database, CheckCircle, AlertCircle, Save, Link } from 'lucide-react';
 
-const HEROKU_API = 'https://townbackend-825d5dfe9e19.herokuapp.com';
-
+const DEFAULT_BACKEND = 'https://townbackend-825d5dfe9e19.herokuapp.com';
+const STORAGE_KEY = 'manga_backend_url';
 // Site priority order (lower = higher priority)
 const SITE_PRIORITY: Record<string, number> = {
   'asura': 1,
@@ -136,6 +138,24 @@ export default function BackendSync() {
   const [progress, setProgress] = useState(0);
   const [stats, setStats] = useState<SyncStats | null>(null);
   const [backendStatus, setBackendStatus] = useState<any>(null);
+  const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND);
+  const [urlSaved, setUrlSaved] = useState(false);
+
+  // Load saved backend URL on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      setBackendUrl(saved);
+    }
+  }, []);
+
+  // Save backend URL
+  const saveBackendUrl = () => {
+    localStorage.setItem(STORAGE_KEY, backendUrl);
+    setUrlSaved(true);
+    toast.success('Backend URL saved!');
+    setTimeout(() => setUrlSaved(false), 2000);
+  };
 
   // Normalize title for comparison
   const normalizeTitle = (title: string) => {
@@ -154,14 +174,16 @@ export default function BackendSync() {
   // Check backend status
   const checkBackendStatus = async () => {
     try {
-      const response = await fetch(`${HEROKU_API}/api/stats`);
+      const response = await fetch(`${backendUrl}/api/stats`);
       if (response.ok) {
         const data = await response.json();
         setBackendStatus(data);
+        toast.success('Backend connected!');
         return data;
       }
     } catch (err) {
       console.error('Backend check failed:', err);
+      toast.error('Backend connection failed');
     }
     return null;
   };
@@ -225,7 +247,7 @@ export default function BackendSync() {
 
     try {
       // Fetch all manga from Heroku
-      const response = await fetch(`${HEROKU_API}/api/manga?limit=500`);
+      const response = await fetch(`${backendUrl}/api/manga?limit=500`);
       if (!response.ok) throw new Error('Failed to fetch from backend');
       
       const { manga: backendManga } = await response.json();
@@ -328,21 +350,49 @@ export default function BackendSync() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Backend URL Input */}
+          <div className="space-y-3">
+            <Label className="flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              Backend URL
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://your-backend.herokuapp.com"
+                value={backendUrl}
+                onChange={(e) => setBackendUrl(e.target.value)}
+                className="flex-1"
+              />
+              <Button onClick={saveBackendUrl} variant="outline" size="icon" title="Save URL">
+                <Save className={`h-4 w-4 ${urlSaved ? 'text-green-500' : ''}`} />
+              </Button>
+              <Button onClick={checkBackendStatus} variant="outline" size="icon" title="Test Connection">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Enter your backend API URL and click save. New backend? Just paste the URL here!
+            </p>
+          </div>
+
           {/* Backend Status */}
           <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
             <div>
               <p className="font-medium">Backend Status</p>
               {backendStatus ? (
-                <p className="text-sm text-muted-foreground">
-                  {backendStatus.total_manga} manga, {backendStatus.total_chapters} chapters
-                </p>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <p className="text-sm text-muted-foreground">
+                    {backendStatus.total_manga} manga, {backendStatus.total_chapters} chapters
+                  </p>
+                </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Not checked</p>
+                <p className="text-sm text-muted-foreground">Not checked - click refresh to test</p>
               )}
             </div>
-            <Button variant="outline" onClick={checkBackendStatus}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Check
+            <Button variant="default" onClick={syncFromBackend} disabled={syncing || seeding}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync Now'}
             </Button>
           </div>
 
