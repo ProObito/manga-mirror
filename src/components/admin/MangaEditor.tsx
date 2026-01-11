@@ -47,6 +47,7 @@ const MangaEditor = () => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [genreInput, setGenreInput] = useState('');
   const [altNameInput, setAltNameInput] = useState('');
+  const [openUploaderIndex, setOpenUploaderIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (isEditing && id) {
@@ -229,7 +230,15 @@ const MangaEditor = () => {
     if (chapter.id) {
       await supabase.from('chapters').delete().eq('id', chapter.id);
     }
+
     setChapters(chapters.filter((_, i) => i !== index));
+    setOpenUploaderIndex((current) => {
+      if (current === null) return null;
+      if (current === index) return null;
+      if (current > index) return current - 1;
+      return current;
+    });
+
     toast.success('Chapter removed');
   };
 
@@ -406,17 +415,17 @@ const MangaEditor = () => {
               ) : (
                 <div className="space-y-4">
                   {chapters.map((chapter, index) => {
-                    const [showUploader, setShowUploader] = useState(false);
-                    
+                    const showUploader = openUploaderIndex === index;
+
                     return (
-                      <div key={index} className="border border-border rounded-lg p-4 space-y-3">
+                      <div key={chapter.id ?? `new-${index}`} className="border border-border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="font-medium">Chapter {chapter.number}</span>
                           <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setShowUploader(!showUploader)}
+                              onClick={() => setOpenUploaderIndex(showUploader ? null : index)}
                               className="gap-1"
                             >
                               <FolderUp className="h-4 w-4" />
@@ -450,7 +459,7 @@ const MangaEditor = () => {
                             />
                           </div>
                         </div>
-                        
+
                         {showUploader && id && (
                           <ChapterUploader
                             mangaId={id}
@@ -459,19 +468,23 @@ const MangaEditor = () => {
                             onUploadComplete={(urls) => updateChapter(index, { images: urls })}
                           />
                         )}
-                        
+
                         {!showUploader && (
                           <div className="space-y-1">
                             <Label className="text-xs">Image URLs ({chapter.images.length} images)</Label>
                             <Textarea
                               value={chapter.images.join('\n')}
-                              onChange={(e) => updateChapter(index, { images: e.target.value.split('\n').filter(Boolean) })}
+                              onChange={(e) =>
+                                updateChapter(index, {
+                                  images: e.target.value.split('\n').filter(Boolean),
+                                })
+                              }
                               placeholder="https://example.com/page1.jpg&#10;https://example.com/page2.jpg"
                               rows={3}
                             />
                           </div>
                         )}
-                        
+
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <Label className="text-xs">Token Cost</Label>
